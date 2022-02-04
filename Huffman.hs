@@ -35,7 +35,11 @@ characterCounts' acc (x:xs)
 
 
 -- modify and add comments as needed
-data HuffmanTree = Leaf Char Int | Node (HuffmanTree) Int (HuffmanTree) deriving Show
+{- 
+  INVARIANT: sub-trees with larger character counts do not occur at a lower level of the tree than
+sub-trees with smaller character counts
+-}
+data HuffmanTree = Empty | Leaf Char Int | Node (HuffmanTree) Int (HuffmanTree) deriving Show
 s = "this is an example of a huffman tree"
 tree1 = (Node (Node (Leaf 'b' 1) 2 (Leaf 'a' 1)) 5 (Leaf 'c' 3)) -- [True, False, False, True, True]
 tree2 = Node (Leaf 'b' 1) 3 (Node (Leaf 'a' 1) 2 (Leaf 'c' 1))
@@ -48,7 +52,9 @@ tree2 = Node (Leaf 'b' 1) 3 (Node (Leaf 'a' 1) 2 (Leaf 'c' 1))
    EXAMPLES: 
  -}
 huffmanTree :: Table Char Int -> HuffmanTree 
-huffmanTree t = hqmerge $ Table.iterate t hqinsert PriorityQueue.empty 
+huffmanTree t
+  | null (toList t) = Empty
+  | otherwise = hqmerge $ Table.iterate t hqinsert PriorityQueue.empty
 
 {- hqinsert q (x, c)
   inserts a HuffmanTree that consists just of a leaf labeled with x and c into the priority queue, with priority c
@@ -90,8 +96,10 @@ hqmerge' q =
    EXAMPLES:
  -}
 codeTable :: HuffmanTree -> Table Char BitCode
+codeTable Empty = Table.empty
 codeTable hTree = fromList (codeLst hTree [])
 
+--PRE: input tree is non empty
 codeLst :: HuffmanTree -> BitCode -> [(Char, BitCode)]
 codeLst (Leaf c n) lst = [(c, lst)]
 codeLst (Node l a r) lst = codeLst l (lst ++ [False]) ++ codeLst r (lst ++ [True])
@@ -99,7 +107,8 @@ codeLst (Node l a r) lst = codeLst l (lst ++ [False]) ++ codeLst r (lst ++ [True
 fromList :: Eq k => [(k,v)] -> Table k v
 fromList = foldl (\t (k,v) -> Table.insert t k v) Table.empty
 
-
+toList :: Table k v -> [(k, v)]
+toList t = Table.iterate t (\a b -> b:a) []
 {- encode h s
    PRE: All characters in s appear in h
    RETURNS: the concatenation of the characters of s encoded using the Huffman code table of h.
@@ -110,6 +119,7 @@ encode :: HuffmanTree -> String -> BitCode
 encode hTree ""  = []
 encode hTree (x:xs) = (getBitCode hTree x) ++ encode hTree xs
 
+-- PRE: chr is in tree, tree is not Empty
 getBitCode :: HuffmanTree -> Char -> BitCode
 getBitCode hTree chr = let Just x = Table.lookup (codeTable hTree) chr in x
 
@@ -188,7 +198,3 @@ test6 =
 runtests = runTestTT $ TestList [test1, test2, test3, test4, test5, test6]
 
 
-{-Node (Node (Node (Node (Leaf 'n' 2) 4 (Node (Leaf 'l' 1) 2 (Leaf 'r' 1))) 8 (Node (Leaf 't' 2) 4 (Leaf 'm' 2))) 16 (Node (Node (Leaf 's' 2) 4 (Leaf 'h' 2)) 8 (Leaf 'e' 4))) 
-36 
-(Node (Node (Leaf 'a' 4) 8 (Node (Leaf 'i' 2) 4 (Node (Leaf 'x' 1) 2 (Leaf 'o' 1)))) 20 (Node (Node (Node (Leaf 'p' 1) 2 (Leaf 'u' 1)) 5 (Leaf 'f' 3)) 12 (Leaf ' ' 7)))
--}
