@@ -36,6 +36,8 @@ characterCounts' acc (x:xs)
 -- modify and add comments as needed
 data HuffmanTree = Leaf Char Int | Node (HuffmanTree) Int (HuffmanTree) deriving Show
 s = "this is an example of a huffman tree"
+tree1 = (Node (Node (Leaf 'b' 1) 2 (Leaf 'a' 1)) 5 (Leaf 'c' 3)) -- [True, False, False, True, True]
+tree2 = Node (Leaf 'b' 1) 3 (Node (Leaf 'a' 1) 2 (Leaf 'c' 1))
 
 {- huffmanTree t
   iterates over all (key, value) pairs in t and adds them as HuffmanTrees into a PriorityQueue,
@@ -87,7 +89,14 @@ hqmerge' q =
    EXAMPLES:
  -}
 codeTable :: HuffmanTree -> Table Char BitCode
-codeTable = undefined
+codeTable hTree = fromList (codeLst hTree [])
+
+codeLst :: HuffmanTree -> BitCode -> [(Char, BitCode)]
+codeLst (Leaf c n) lst = [(c, lst)]
+codeLst (Node l a r) lst = codeLst l (lst ++ [False]) ++ codeLst r (lst ++ [True])
+
+fromList :: Eq k => [(k,v)] -> Table k v
+fromList = foldl (\t (k,v) -> Table.insert t k v) Table.empty
 
 
 {- encode h s
@@ -96,14 +105,23 @@ codeTable = undefined
    EXAMPLES:
  -}
 encode :: HuffmanTree -> String -> BitCode
-encode = undefined
+--encode = undefined
+encode hTree ""  = []
+encode hTree (x:xs) = (getBitCode hTree x) ++ encode hTree xs
+
+getBitCode :: HuffmanTree -> Char -> BitCode
+getBitCode hTree chr = let Just x = Table.lookup (codeTable hTree) chr in x
+
+
+
 
 {- compress s
    RETURNS: (a Huffman tree based on s, the Huffman coding of s under this tree)
    EXAMPLES:
  -}
 compress :: String -> (HuffmanTree, BitCode)
-compress = undefined
+compress str = (hTree, encode hTree str)
+  where hTree = huffmanTree ( characterCounts str)
 
 
 {- decompress h bits
@@ -112,7 +130,14 @@ compress = undefined
    EXAMPLES:
  -}
 decompress :: HuffmanTree -> BitCode -> String
-decompress = undefined
+decompress hTree bc = decompressAux hTree hTree bc
+
+
+decompressAux _ _ [] = []
+decompressAux hTree (Leaf c n) xs = c : decompressAux hTree hTree xs
+decompressAux hTree (Node l a r) (False:xs) = decompressAux hTree l xs
+decompressAux hTree (Node l a r) (True:xs) = decompressAux hTree r xs
+
 
 
 --------------------------------------------------------------------------------
