@@ -7,6 +7,7 @@ import PriorityQueue
 
 import Test.HUnit
 import Debug.Trace
+
 {- a bit code (of a character or string) is represented by a list of Booleans
    INVARIANT:
      the bit code is a concatenation of (0 or more) valid code words for some Huffman tree
@@ -130,10 +131,14 @@ compress str = (hTree, encode hTree str)
    EXAMPLES:
  -}
 decompress :: HuffmanTree -> BitCode -> String
+decompress (Leaf c 0) [] = ""
+decompress (Leaf c n) [] = c : decompress (Leaf c (n-1)) [] 
 decompress hTree bc = decompressAux hTree hTree bc
 
 
-decompressAux _ _ [] = []
+decompressAux :: HuffmanTree -> HuffmanTree -> BitCode -> String
+decompressAux _ (Leaf c n) [] = [c]
+decompressAux _ _ [] = ""
 decompressAux hTree (Leaf c n) xs = c : decompressAux hTree hTree xs
 decompressAux hTree (Node l a r) (False:xs) = decompressAux hTree l xs
 decompressAux hTree (Node l a r) (True:xs) = decompressAux hTree r xs
