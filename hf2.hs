@@ -1,5 +1,7 @@
+-- PKD Assignment 3, Hugo Eidmann & Viktor Kangasniemi
+
+
 -- DO NOT MODIFY THE FOLLOWING LINES
-{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 module Huffman(HuffmanTree, characterCounts, huffmanTree, codeTable, encode, compress, decompress) where
 
@@ -8,7 +10,7 @@ import PriorityQueue
 
 import Test.HUnit
 import Debug.Trace
-import Test.QuickCheck
+
 {- a bit code (of a character or string) is represented by a list of Booleans
    INVARIANT:
      the bit code is a concatenation of (0 or more) valid code words for some Huffman tree
@@ -20,80 +22,55 @@ type BitCode = [Bool]
 --------------------------------------------------------------------------------
 
 {- characterCounts s
-   creates a table with the character counts of s
    RETURNS: a table that maps each character that occurs in s to the number of
          times the character occurs in s
-   EXAMPLES:
-   characterCounts "Example text" == T [('E',1),('x',2),('a',1),('m',1),('p',1),('l',1),('e',2),(' ',1),('t',2)]
-      characterCounts "hello" == T [('h',1),('e',1),('l',2),('o',1)]
-      characterCounts "" == T []
+   EXAMPLES: characterCounts "Example text" =
+            T [('E',1),('x',2),('a',1),('m',1),('p',1),('l',1),('e',2),(' ',1),('t',2)]
  -}
 characterCounts :: String -> Table Char Int
 characterCounts = characterCounts' Table.empty
 
-{- characterCounts' acc s
-  helper function for characterCounts that uses an accumulator to save the intermediate results in a table.
--}
-characterCounts' :: (Num v, Eq k) => Table k v -> [k] -> Table k v
 characterCounts' acc [] = acc
 characterCounts' acc (x:xs)
-  | Table.exists acc x = let Just c = Table.lookup acc x 
+  | Table.exists acc x = let Just c = Table.lookup acc x
     in characterCounts' (Table.insert acc x (c+1)) xs
 
   | otherwise = characterCounts' (Table.insert acc x 1) xs
 
-
 -- modify and add comments as needed
-{- a Huffman tree
-  Empty is an empty tree.
-  Leaf c x is a leaf with the character c and x is the number of times c occurs in the string that is represented in the tree
-  Node l x r is a node with left child l, value x, and right child r.
-  in Node l x r, x is the sum of all a, b, in (Leaf c a), (Node l2 b r2), where (Leaf c a) and (Node l2 b r2) are sub-trees of (Node l x r) 
-  INVARIANT: sub-trees with larger character counts do not occur at a lower level of the tree than
-sub-trees with smaller character counts
+{-
+  INVARIANT: the most common char must be closest to the root node
 -}
-data HuffmanTree = Empty | Leaf Char Int | Node HuffmanTree Int HuffmanTree deriving Show
+data HuffmanTree = Empty | Leaf Char Int | Node (HuffmanTree) Int (HuffmanTree) deriving Show
+
+
 s = "this is an example of a huffman tree"
-tree1 = (Node (Node (Leaf 'b' 1) 2 (Leaf 'a' 1)) 5 (Leaf 'c' 3))
+tree1 = (Node (Node (Leaf 'b' 1) 2 (Leaf 'a' 1)) 5 (Leaf 'c' 3)) -- [True, False, False, True, True]
 tree2 = Node (Leaf 'b' 1) 3 (Node (Leaf 'a' 1) 2 (Leaf 'c' 1))
 
 {- huffmanTree t
   iterates over all (key, value) pairs in t and adds them as HuffmanTrees into a PriorityQueue,
   merges the trees in the PriorityQueue in increasing order of priority into a single HuffmanTree.
-  PRE:  t maps each key to a positive value
-  RETURNS: a Huffman tree based on the character counts in t
-  EXAMPLES: 
-    huffmanTree (T [('E',1),('x',2),('a',1),('m',1),('p',1),('l',1),('e',2),(' ',1),('t',2)]) ==
-      Node (Node (Leaf 't' 2) 4 (Node (Leaf 'E' 1) 2 (Leaf 'p' 1))) 12 (Node (Node (Node (Leaf 'a' 1) 2 (Leaf ' ' 1)) 4 (Leaf 'e' 2)) 8 (Node (Leaf 'x' 2) 4 (Node (Leaf 'l' 1) 2 (Leaf 'm' 1))))
-    huffmanTree (T []) == Empty
-    huffmanTree (T [('a', 1)]) == Leaf 'a' 1
+   PRE:  t maps each key to a positive value
+   RETURNS: a Huffman tree based on the character counts in t
+   EXAMPLES:
  -}
-huffmanTree :: Table Char Int -> HuffmanTree 
+huffmanTree :: Table Char Int -> HuffmanTree
 huffmanTree t
   | null (toList t) = Empty
   | otherwise = hqmerge $ Table.iterate t hqinsert PriorityQueue.empty
 
-{- toList t
-  Export a table t as a list of key-value tuples. 
-  The order of the elements in t are reversed.
-  
-  RETURNS: a list of all key-value pairs in t
-  EXAMPLES: 
-    tolist (T [('h',1),('e',1),('l',2),('o',1)]) == [('o',1),('l',2),('e',1),('h',1)]
-    toList (T []) == []
-    (fromList . toList) t == t -- TODO: (fromList . toList) (T [('h',1),('e',1),('l',2),('o',1)]) == T [('o',1),('l',2),('e',1),('h',1)]
-
--}
+  {- toList t
+    Export a table t as a list of key-value tuples.
+    EXAMPLE: (fromList . toList) t == t
+  -}
 toList :: Table k v -> [(k, v)]
-toList t = Table.iterate t (\a b -> b:a) []
+toList t = Table.iterate t (\a b -> b : a) []
 
 {- hqinsert q (x, c)
   inserts a HuffmanTree that consists just of a leaf labeled with x and c into the priority queue, with priority c
-  
-  RETURNS: q but with the (Leaf x c, c) inserted 
-  EXAMPLES: hqinsert (BinoHeap []) ('a', 2) ==  BinoHeap [Node 0 2 (Leaf 'a' 2) []]
-    hqinsert (BinoHeap [Node 0 2 (Leaf 'a' 2) []]) ('b', 4) == BinoHeap [Node 1 2 (Leaf 'a' 2) [Node 0 4 (Leaf 'b' 4) []]]
-    hqinsert (BinoHeap [Node 1 2 (Leaf 'a' 2) [Node 0 4 (Leaf 'b' 4) []]]) ('c', 1) == BinoHeap [Node 0 1 (Leaf 'c' 1) [],Node 1 2 (Leaf 'a' 2) [Node 0 4 (Leaf 'b' 4) []]]
+
+  RETURNS: q but with the (Leaf x c, c) inserted
 -}
 hqinsert :: PriorityQueue HuffmanTree -> (Char, Int) -> PriorityQueue HuffmanTree
 hqinsert q (x,c) = PriorityQueue.insert q (Leaf x c, c)
@@ -102,15 +79,10 @@ hqinsert q (x,c) = PriorityQueue.insert q (Leaf x c, c)
   Merges the HuffmanTrees in q into one tree, in increasing order of priority
   If there is only one tree in q, that tree is returned, otherwise it merges the trees until there is only one.
   RETURNS: A merged tree consisting of all the trees in q
-  PRE: q is not empty
-  EXAMPLES: 
-    hqmerge (BinoHeap [Node 1 1 (Leaf 'a' 1) [Node 0 4 (Leaf 'b' 4) []]]) == Node (Leaf 'a' 1) 5 (Leaf 'b' 4)
-    hqmerge (BinoHeap [Node 0 1 (Leaf 'a' 1) []]) == Leaf 'a' 1
--}
 
+-}
 hqmerge :: PriorityQueue HuffmanTree -> HuffmanTree
--- VARIANT: (number of elements in q) - 1
-hqmerge q 
+hqmerge q
   | PriorityQueue.is_empty $ snd $ least q = fst $ fst $ least q
   | otherwise = hqmerge $ hqmerge' q
 
@@ -118,55 +90,54 @@ hqmerge q
 {-hqmerge' q
   Helper function for hqmerge.
   Merges the two trees with least priority in q
-  PRE: q contains at least two elements
+
   RETURNS: q but with the two trees with least priority merged into one tree.
-  EXAMPLES: 
-    hqmerge' (BinoHeap [Node 1 1 (Leaf 'a' 1) [Node 0 4 (Leaf 'b' 4) []]]) == BinoHeap [Node 0 5 (Node (Leaf 'a' 1) 5 (Leaf 'b' 4)) []]
+
 -}
 hqmerge' :: PriorityQueue HuffmanTree -> PriorityQueue HuffmanTree
 hqmerge' q =
-  let ((t1, p1), rest1) = least q 
-  in 
-    let ((t2, p2), rest2) = least rest1 
-      in PriorityQueue.insert rest2 (Node t1 (p1+p2) t2, p1+p2)
+  let ((l1, p1), rest1) = least q
+  in
+    let ((l2, p2), rest2) = least rest1
+      in PriorityQueue.insert rest2 (Node l1 (p1+p2) l2, p1+p2)
 
 
 {- codeTable h
    Creates a table that maps each character from the input tree to its respective Huffman code
    RETURNS: a table that maps each character in h to its Huffman code
-   EXAMPLES: codeTable (Node (Node (Leaf 'b' 1) 2 (Leaf 'a' 1)) 5 (Leaf 'c' 3)) ==
+
+   EXAMPLES: codeTable (Node (Node (Leaf 'b' 1) 2 (Leaf 'a' 1)) 5 (Leaf 'c' 3)) =
                           T [('b',[False,False]),('a',[False,True]),('c',[True])]
-    codeTable (Leaf 'a' 1) == T [('a',[])]
-    codeTable Empty = T []
-    codeTable $ huffmanTree $ characterCounts "abba" == T [('a',[False]),('b',[True])]
  -}
 codeTable :: HuffmanTree -> Table Char BitCode
+-- VARIANT: fromList + codeLst
 codeTable Empty = Table.empty
 codeTable hTree = fromList (codeLst hTree [])
 
-{- codeLst hTree bitcode
-  Goes through the given HuffmanTree and maps each leafs char to its respective Huffman code
+
+{- codeLst hTree BitCode
+   Goes through the given HuffmanTree and maps each leafs char to its respective Huffman code
   PRE: input tree is not Empty
   RETURNS: a Table that maps each char to its respective Huffman code from the input tree
-    TODO: a list of all pairs (c, bc) where c is the character and bc is its respective Huffman code from htree
-  EXAMPLES: codeLst (Node (Node (Leaf 'b' 1) 2 (Leaf 'a' 1)) 5 (Leaf 'c' 3)) ==
+
+  EXAMPLES: codeLst (Node (Node (Leaf 'b' 1) 2 (Leaf 'a' 1)) 5 (Leaf 'c' 3)) =
                          [('b',[False,False]),('a',[False,True]),('c',[True])]
 -}
 codeLst :: HuffmanTree -> BitCode -> [(Char, BitCode)]
--- VARIANT: (The amount of Nodes/Leaf in htree) - 1
+-- VARIANT: (The amount of Nodes/Leaf in the tree) - 1
 codeLst (Leaf c n) lst = [(c, lst)]
 codeLst (Node l a r) lst = codeLst l (lst ++ [False]) ++ codeLst r (lst ++ [True])
 
 {- fromList xs
-  Given a list of (key,value)-tuples, it inserts all these values into a table.
+  Given a list of (key,value)-tuples, it inserts all these values.
 
   If there are multiple values for a given key in the list,
   the LAST value in the list is kept.
-  RETURNS: a table with all key-value pairs of xs
-  EXAMPLE: fromList [(1,1),(1,2)] == T [(1,2)]
+
+  EXAMPLE: fromList [(1,1),(1,2)] == fromList [(1,2)]
 -}
 fromList :: Eq k => [(k,v)] -> Table k v
--- VARIANT: (length of Table) - 1 TODO:  is this function recursive?
+-- VARIANT: (length of Table) - 1
 fromList = foldl (\t (k,v) -> Table.insert t k v) Table.empty
 
 {- encode h s
@@ -174,12 +145,11 @@ fromList = foldl (\t (k,v) -> Table.insert t k v) Table.empty
    PRE: All characters in s appear in h
    RETURNS: the concatenation of the characters of s encoded using the Huffman code table of h.
 
-   EXAMPLES: encode (Node (Leaf 'a' 2) 4 (Leaf 'b' 2)) "abba" == [False,True,True,False]
-             encode (Leaf 'a' 2) "aa" == []
-             encode Empty "" == []
+   EXAMPLES: encode (Node (Leaf 'a' 2) 4 (Leaf 'b' 2)) "abba" = [False,True,True,False]
+             encode Empty "" = []
  -}
 encode :: HuffmanTree -> String -> BitCode
--- VARIANT:  length of String + length of (codeTable hTree) TODO: length s ?
+-- VARIANT:  length of String + length of (codeTable hTree)
 encode hTree ""  = []
 encode hTree (x:xs) = (getBitCode hTree x) ++ encode hTree xs
 
@@ -187,27 +157,24 @@ encode hTree (x:xs) = (getBitCode hTree x) ++ encode hTree xs
 {- getBitCode hTree chr
   gets the input characters corresponding Huffman code
   PRE: chr must be in hTree, hTree cant be Empty
-  RETURNS : the Huffman code of chr in htree
+  RETURNS : BitCode
+
   EXAMPLES:
-    getBitCode (Node (Node (Leaf 'b' 1) 2 (Leaf 'a' 1)) 5 (Leaf 'c' 3)) 'c' == [True]
-    getBitCode (Node (Node (Leaf 'b' 1) 2 (Leaf 'a' 1)) 5 (Leaf 'c' 3)) 'b' == [False, False]
-    getBitCode (Node (Node (Leaf 'b' 1) 2 (Leaf 'a' 1)) 5 (Leaf 'c' 3)) 'a' == [False, True]
+  getBitCode (Node (Node (Leaf 'b' 1) 2 (Leaf 'a' 1)) 5 (Leaf 'c' 3)) 'c' = [True]
 -}
 getBitCode :: HuffmanTree -> Char -> BitCode
--- VARIANT: lenght of Table TODO function is not recursive
+-- VARIANT: lenght of Table
 getBitCode hTree chr = let Just x = Table.lookup (codeTable hTree) chr in x
-
-
 
 {- compress s
    Compresses the given string
    RETURNS: (a Huffman tree based on s, the Huffman coding of s under this tree)
 
-   EXAMPLES: compress "abba" == (Node (Leaf 'a' 2) 4 (Leaf 'b' 2), [False,True,True,False])
-             compress "aaa" == (Leaf 'a' 3, [])
-             compress "" == (Empty, [])
+   EXAMPLES: compress "abba" = (Node (Leaf 'a' 2) 4 (Leaf 'b' 2), [False,True,True,False])
+             compress "" = (Empty, [])
  -}
 compress :: String -> (HuffmanTree, BitCode)
+-- VARIANT: (length(String) -1) + length of String + length of (codeTable Tree)  -- variant of huffmanTree + variant of encode
 compress str = (hTree, encode hTree str)
   where hTree = huffmanTree ( characterCounts str)
 
@@ -224,8 +191,9 @@ compress str = (hTree, encode hTree str)
 decompress :: HuffmanTree -> BitCode -> String
 -- VARIANT: lenght of BitCode - 1 or n-1
 decompress (Leaf c 0) [] = ""
-decompress (Leaf c n) [] = c : decompress (Leaf c (n-1)) [] 
+decompress (Leaf c n) [] = c : decompress (Leaf c (n-1)) []
 decompress hTree bc = decompressAux hTree hTree bc
+
 
 {- decompressAux t1 t2 BitCode
    Goes through the huffmanTree according to the BitCode
@@ -237,7 +205,7 @@ decompress hTree bc = decompressAux hTree hTree bc
              decompressAux Empty Empty [] = ""
 -}
 decompressAux :: HuffmanTree -> HuffmanTree -> BitCode -> String
--- VARIANT: lenght of BitCode - 1 TODO why -1? 
+-- VARIANT: lenght of BitCode - 1
 decompressAux _ (Leaf c n) [] = [c]
 decompressAux _ _ [] = ""
 decompressAux hTree (Leaf c n) xs = c : decompressAux hTree hTree xs
@@ -289,28 +257,7 @@ test6 =
 runtests = runTestTT $ TestList [test1, test2, test3, test4, test5, test6]
 
 
---quickcheck props
-eqhuff :: String -> Bool
-eqhuff s = s == (let (h, bits) = compress s in decompress h bits) -- 10 000 test == OK
-
-valhuff :: HuffmanTree -> Int
-valhuff Empty = 0
-valhuff (Leaf c n) = n
-valhuff (Node l a r) = a
-
-
-{-Checks invariant, smaller character counts are never above larger-}
-invhuff :: String -> Bool
-invhuff s = let ht = huffmanTree (characterCounts s) in f ht
-  where 
-    f Empty = True
-    f (Leaf c n) = True
-    f (Node l a r) = a >= valhuff l && a >= valhuff r && f l && f r  -- 10 000 test = OK
-
-invhuff' :: HuffmanTree -> Bool
-invhuff' Empty = True
-invhuff' (Leaf c n) = True
-invhuff'  (Node l a r) = a >= valhuff l && a >= valhuff r && invhuff' l && invhuff' r 
-
-
-
+{-Node (Node (Node (Node (Leaf 'n' 2) 4 (Node (Leaf 'l' 1) 2 (Leaf 'r' 1))) 8 (Node (Leaf 't' 2) 4 (Leaf 'm' 2))) 16 (Node (Node (Leaf 's' 2) 4 (Leaf 'h' 2)) 8 (Leaf 'e' 4)))
+36
+(Node (Node (Leaf 'a' 4) 8 (Node (Leaf 'i' 2) 4 (Node (Leaf 'x' 1) 2 (Leaf 'o' 1)))) 20 (Node (Node (Node (Leaf 'p' 1) 2 (Leaf 'u' 1)) 5 (Leaf 'f' 3)) 12 (Leaf ' ' 7)))
+-}
