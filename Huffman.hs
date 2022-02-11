@@ -1,14 +1,10 @@
 -- DO NOT MODIFY THE FOLLOWING LINES
-{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
-
 module Huffman(HuffmanTree, characterCounts, huffmanTree, codeTable, encode, compress, decompress) where
 
 import Table
 import PriorityQueue
 
 import Test.HUnit
-import Debug.Trace
-import Test.QuickCheck
 {- a bit code (of a character or string) is represented by a list of Booleans
    INVARIANT:
      the bit code is a concatenation of (0 or more) valid code words for some Huffman tree
@@ -16,7 +12,7 @@ import Test.QuickCheck
 type BitCode = [Bool]
 
 -- END OF DO NOT MODIFY ZONE
-
+--Hugo Eidmann & Viktor Kangasniemi grupp 22
 --------------------------------------------------------------------------------
 
 {- characterCounts s
@@ -53,12 +49,9 @@ characterCounts' acc (x:xs)
 sub-trees with smaller character counts
 -}
 data HuffmanTree = Empty | Leaf Char Int | Node HuffmanTree Int HuffmanTree deriving Show
-s = "this is an example of a huffman tree"
-tree1 = (Node (Node (Leaf 'b' 1) 2 (Leaf 'a' 1)) 5 (Leaf 'c' 3))
-tree2 = Node (Leaf 'b' 1) 3 (Node (Leaf 'a' 1) 2 (Leaf 'c' 1))
 
 {- huffmanTree t
-  iterates over all (key, value) pairs in t and adds them as HuffmanTrees into a PriorityQueue,
+  iterates over all (key, value) pairs in z t and adds them as HuffmanTrees into a PriorityQueue,
   merges the trees in the PriorityQueue in increasing order of priority into a single HuffmanTree.
   PRE:  t maps each key to a positive value
   RETURNS: a Huffman tree based on the character counts in t
@@ -81,8 +74,6 @@ huffmanTree t
   EXAMPLES: 
     tolist (T [('h',1),('e',1),('l',2),('o',1)]) == [('o',1),('l',2),('e',1),('h',1)]
     toList (T []) == []
-    (fromList . toList) t == t -- TODO: (fromList . toList) (T [('h',1),('e',1),('l',2),('o',1)]) == T [('o',1),('l',2),('e',1),('h',1)]
-
 -}
 toList :: Table k v -> [(k, v)]
 toList t = Table.iterate t (\a b -> b:a) []
@@ -109,7 +100,7 @@ hqinsert q (x,c) = PriorityQueue.insert q (Leaf x c, c)
 -}
 
 hqmerge :: PriorityQueue HuffmanTree -> HuffmanTree
--- VARIANT: (number of elements in q) - 1
+-- VARIANT: (number of elements in q)
 hqmerge q 
   | PriorityQueue.is_empty $ snd $ least q = fst $ fst $ least q
   | otherwise = hqmerge $ hqmerge' q
@@ -147,13 +138,12 @@ codeTable hTree = fromList (codeLst hTree [])
 {- codeLst hTree bitcode
   Goes through the given HuffmanTree and maps each leafs char to its respective Huffman code
   PRE: input tree is not Empty
-  RETURNS: a Table that maps each char to its respective Huffman code from the input tree
-    TODO: a list of all pairs (c, bc) where c is the character and bc is its respective Huffman code from htree
+  RETURNS: a list of all pairs (c, bc) where c is the character and bc is its respective Huffman code from htree
   EXAMPLES: codeLst (Node (Node (Leaf 'b' 1) 2 (Leaf 'a' 1)) 5 (Leaf 'c' 3)) ==
                          [('b',[False,False]),('a',[False,True]),('c',[True])]
 -}
 codeLst :: HuffmanTree -> BitCode -> [(Char, BitCode)]
--- VARIANT: (The amount of Nodes/Leaf in htree) - 1
+-- VARIANT: (The amount of Nodes/Leaf in htree)
 codeLst (Leaf c n) lst = [(c, lst)]
 codeLst (Node l a r) lst = codeLst l (lst ++ [False]) ++ codeLst r (lst ++ [True])
 
@@ -166,7 +156,6 @@ codeLst (Node l a r) lst = codeLst l (lst ++ [False]) ++ codeLst r (lst ++ [True
   EXAMPLE: fromList [(1,1),(1,2)] == T [(1,2)]
 -}
 fromList :: Eq k => [(k,v)] -> Table k v
--- VARIANT: (length of Table) - 1 TODO:  is this function recursive?
 fromList = foldl (\t (k,v) -> Table.insert t k v) Table.empty
 
 {- encode h s
@@ -179,7 +168,7 @@ fromList = foldl (\t (k,v) -> Table.insert t k v) Table.empty
              encode Empty "" == []
  -}
 encode :: HuffmanTree -> String -> BitCode
--- VARIANT:  length of String + length of (codeTable hTree) TODO: length s ?
+-- VARIANT: length s
 encode hTree ""  = []
 encode hTree (x:xs) = (getBitCode hTree x) ++ encode hTree xs
 
@@ -194,7 +183,6 @@ encode hTree (x:xs) = (getBitCode hTree x) ++ encode hTree xs
     getBitCode (Node (Node (Leaf 'b' 1) 2 (Leaf 'a' 1)) 5 (Leaf 'c' 3)) 'a' == [False, True]
 -}
 getBitCode :: HuffmanTree -> Char -> BitCode
--- VARIANT: lenght of Table TODO function is not recursive
 getBitCode hTree chr = let Just x = Table.lookup (codeTable hTree) chr in x
 
 
@@ -222,12 +210,12 @@ compress str = (hTree, encode hTree str)
              decompress (Leaf 'a' 3) [] = "aaa" 
  -}
 decompress :: HuffmanTree -> BitCode -> String
--- VARIANT: lenght of BitCode - 1 or n-1
+-- VARIANT: variant for decompress (Leaf c n) is length n 
 decompress (Leaf c 0) [] = ""
 decompress (Leaf c n) [] = c : decompress (Leaf c (n-1)) [] 
 decompress hTree bc = decompressAux hTree hTree bc
 
-{- decompressAux t1 t2 BitCode
+{- decompressAux t1 t2 bitcode
    Goes through the huffmanTree according to the BitCode
    and creates a string of all chars in correct order
    PRE: The given BitCode must be correlated with the given hTree
@@ -237,7 +225,7 @@ decompress hTree bc = decompressAux hTree hTree bc
              decompressAux Empty Empty [] = ""
 -}
 decompressAux :: HuffmanTree -> HuffmanTree -> BitCode -> String
--- VARIANT: lenght of BitCode - 1 TODO why -1? 
+-- VARIANT: length bitcode
 decompressAux _ (Leaf c n) [] = [c]
 decompressAux _ _ [] = ""
 decompressAux hTree (Leaf c n) xs = c : decompressAux hTree hTree xs
@@ -287,30 +275,3 @@ test6 =
 
 -- for running all the tests
 runtests = runTestTT $ TestList [test1, test2, test3, test4, test5, test6]
-
-
---quickcheck props
-eqhuff :: String -> Bool
-eqhuff s = s == (let (h, bits) = compress s in decompress h bits) -- 10 000 test == OK
-
-valhuff :: HuffmanTree -> Int
-valhuff Empty = 0
-valhuff (Leaf c n) = n
-valhuff (Node l a r) = a
-
-
-{-Checks invariant, smaller character counts are never above larger-}
-invhuff :: String -> Bool
-invhuff s = let ht = huffmanTree (characterCounts s) in f ht
-  where 
-    f Empty = True
-    f (Leaf c n) = True
-    f (Node l a r) = a >= valhuff l && a >= valhuff r && f l && f r  -- 10 000 test = OK
-
-invhuff' :: HuffmanTree -> Bool
-invhuff' Empty = True
-invhuff' (Leaf c n) = True
-invhuff'  (Node l a r) = a >= valhuff l && a >= valhuff r && invhuff' l && invhuff' r 
-
-
-
